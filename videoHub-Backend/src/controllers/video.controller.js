@@ -87,6 +87,10 @@ const deleteVideo = asyncHandler(async (req, res) => {
 
     const { id } = req.params;
 
+    if(!isValidObjectId(id)){
+        throw new ApiError(401,"Invalid Video-Id")
+    }
+
     const videoExists = await Video.findById(id);
 
     if (!videoExists) {
@@ -132,9 +136,12 @@ const updateVideoDetails = asyncHandler(async (req, res) => {
     const { title, description } = req.body;
     const { id } = req.params;
 
+    if(!isValidObjectId(id)){
+        throw new ApiError(401,"Invalid Video Id")
+    }
     // console.log("Title:", title, "Description: ", description);
 
-    if (!title.trim() === "") {
+    if (title.trim() === "") {
         throw new ApiError(401, "Title must not be empty!");
     }
 
@@ -190,6 +197,10 @@ const getSingleVideo = asyncHandler(async (req, res) => {
 
     const { id } = req.params;
 
+    if(!isValidObjectId(id)){
+        throw new ApiError(401,"Invalid Video Id")
+    }
+
     // console.log("Valid: ", mongoose.Types.ObjectId.isValid(id));
 
     const video = await Video.findById(id);
@@ -200,6 +211,8 @@ const getSingleVideo = asyncHandler(async (req, res) => {
 
     console.log("Fetched Video : ", video);
 
+    /* TODO: get the likes and comments and the respective user using aggregation */
+
     return res
         .status(200)
         .json(new ApiResponse(200, video, "Video fetched successfully"));
@@ -208,6 +221,10 @@ const getSingleVideo = asyncHandler(async (req, res) => {
 const addView = asyncHandler(async (req, res) => {
     /* simply get the id from the params and then fetch that document and increase the views field by 1 */
     const { id } = req.params;
+
+    if(!isValidObjectId(id)){
+        throw new ApiError(401,"Invalid Video Id")
+    }
 
     const video = await Video.findByIdAndUpdate(
         id,

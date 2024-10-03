@@ -1,4 +1,4 @@
-import mongoose, {Schema, Model} from "mongoose";
+import mongoose, {Schema, model} from "mongoose";
 
 const dislikeSchema = new Schema({
     comment:{
@@ -19,4 +19,4 @@ const dislikeSchema = new Schema({
     }
 },{timestamps:true})
 
-export const Dislike = Model("Dislike", dislikeSchema)
+export const Dislike = model("Dislike", dislikeSchema)

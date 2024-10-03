@@ -34,6 +34,8 @@ app.use(cookieParser());
 import userRouter from "./routes/user.routes.js";
 import videoRouter from "./routes/video.routes.js";
 import communityPostRouter from "./routes/communityPost.routes.js";
+import likeRouter from "./routes/like.routes.js"
+import dislikeRouter from "./routes/dislike.routes.js"
 
 //routes declaration
 
@@ -45,6 +47,12 @@ app.use("/api/v1/video", videoRouter);
 
 /* communityPost Routes */
 app.use("/api/v1/communityPost", communityPostRouter);
+
+/* Like Routes */
+app.use("/api/v1/like",likeRouter)
+
+/* Dislike Routes */
+app.use("/api/v1/dislike",dislikeRouter)
 
 /*postman testing
  app.get('/',(req, res) => {

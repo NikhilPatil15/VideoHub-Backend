@@ -1,4 +1,4 @@
-import {Schema, Model} from 'mongoose'
+import {Schema,  model} from 'mongoose'
 
 const commentSchema = new Schema({
     content:{
@@ -19,4 +19,4 @@ const commentSchema = new Schema({
     }
 },{timestamps:true})
 
-export const Comment = Model("Comment", commentSchema)
+export const Comment = model("Comment", commentSchema)
