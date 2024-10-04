@@ -156,8 +156,9 @@ const updateCommunityPost = asyncHandler(async (req, res) => {
 
     console.log("Community Post: ", communityPost);
 
-    const imageFile = req?.file?.path;
 
+    const imageFile = req?.file?.path;
+    
     if (imageFile) {
         const updatedCommunityPost = await uploadOnCloudinary(imageFile);
 

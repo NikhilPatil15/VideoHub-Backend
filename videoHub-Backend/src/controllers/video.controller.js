@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Video } from "../models/video.model.js";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
@@ -87,8 +88,8 @@ const deleteVideo = asyncHandler(async (req, res) => {
 
     const { id } = req.params;
 
-    if(!isValidObjectId(id)){
-        throw new ApiError(401,"Invalid Video-Id")
+    if (!isValidObjectId(id)) {
+        throw new ApiError(401, "Invalid Video-Id");
     }
 
     const videoExists = await Video.findById(id);
@@ -136,8 +137,8 @@ const updateVideoDetails = asyncHandler(async (req, res) => {
     const { title, description } = req.body;
     const { id } = req.params;
 
-    if(!isValidObjectId(id)){
-        throw new ApiError(401,"Invalid Video Id")
+    if (!isValidObjectId(id)) {
+        throw new ApiError(401, "Invalid Video Id");
     }
     // console.log("Title:", title, "Description: ", description);
 
@@ -197,8 +198,8 @@ const getSingleVideo = asyncHandler(async (req, res) => {
 
     const { id } = req.params;
 
-    if(!isValidObjectId(id)){
-        throw new ApiError(401,"Invalid Video Id")
+    if (!isValidObjectId(id)) {
+        throw new ApiError(401, "Invalid Video Id");
     }
 
     // console.log("Valid: ", mongoose.Types.ObjectId.isValid(id));
@@ -213,6 +214,152 @@ const getSingleVideo = asyncHandler(async (req, res) => {
 
     /* TODO: get the likes and comments and the respective user using aggregation */
 
+    const likesAndCommentsAndSubscribers = await Video.aggregate([
+        {
+            $match:{
+                _id: new mongoose.Types.ObjectId(id)
+            }
+        },
+        {
+            $lookup:{
+                from:"likes",
+                localField:"_id",
+                foreignField:"videoId",
+                as:"likes"
+            }
+        },
+        {
+            $lookup:{
+                from:"comments",
+                localField:'_id',
+                foreignField:"videoId",
+                as:"comments"
+            }
+        },
+        {
+            $lookup:{
+                from:'dislikes',
+                localField:'_id',
+                foreignField:'video',
+                as:'dislikes'
+            }
+        },
+        {
+            $lookup:{
+                from:'users',
+                localField:'owner',
+                foreignField:'_id',
+                as:"owner",
+                pipeline:[
+                    {
+                        $lookup:{
+                            from:'subscriptions',
+                            localField:'_id',
+                            foreignField:'channel',
+                            as:"subscribers"
+                        }
+                    },
+                    {
+                        $addFields:{
+                            subscribersCount:{
+                                $size:'$subscribers'
+                            },
+                            isSubscribed:{
+                                $cond:{
+                                    if:{
+                                        $in:[
+                                            req.user?._id,
+                                            '$subscribers.subscriber'
+                                        ]
+                                    },
+                                    then:true,
+                                    else:false
+                                }
+                            }
+                        }
+                    },
+                    {
+                        $project:{
+                            username:1,
+                            'avatar.url':1,
+                             subscribersCount:1,
+                             isSubscribed:1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields:{
+                likesCount:{
+                    $size:'$likes'
+                },
+                commentsCount:{
+                    $size:'$comments'
+                },
+                dislikesCount:{
+                    $size:'$dislikes'
+                },
+                isliked:{
+                    $cond:{
+                        if:{
+                            $in:[
+                                req.user?._id,
+                                "$likes.likedBy"
+                            ]     
+                        },
+                        then:true,
+                        else:false
+                    }
+                },
+                isdisliked:{
+                    $cond:{
+                        if:{
+                            $in:[
+                                req.user?._id,
+                                "$dislikes.dislikedBy"
+                            ]     
+                        },
+                        then:true,
+                        else:false
+                    }
+                },
+                isCommented:{
+                    $cond:{
+                        if:{
+                            $in:[
+                                req.user?._id,
+                                '$comments.owner'
+                            ]
+                        },
+                        then:true,
+                        else:false
+                    }
+                }
+            }
+        },
+        {
+            $project:{
+                'videoFile.url':1,
+                title:1,
+                description:1,
+                views:1,
+                createdAt:1,
+                duration:1,
+                comments:1,
+                likesCount:1,
+                dislikesCount:1,
+                commentsCount:1,
+                isLiked:1,
+                isCommented:1,
+                isdisliked:1,
+                owner:1
+            }
+        }
+    ]);
+
+    console.log("Aggregation Results: ", likesAndCommentsAndSubscribers);
+    
     return res
         .status(200)
         .json(new ApiResponse(200, video, "Video fetched successfully"));
@@ -222,8 +369,8 @@ const addView = asyncHandler(async (req, res) => {
     /* simply get the id from the params and then fetch that document and increase the views field by 1 */
     const { id } = req.params;
 
-    if(!isValidObjectId(id)){
-        throw new ApiError(401,"Invalid Video Id")
+    if (!isValidObjectId(id)) {
+        throw new ApiError(401, "Invalid Video Id");
     }
 
     const video = await Video.findByIdAndUpdate(
@@ -231,8 +378,6 @@ const addView = asyncHandler(async (req, res) => {
         { $inc: { views: 1 } },
         { new: true }
     );
-
-    
 
     console.log("Views: ", video.views);
 
