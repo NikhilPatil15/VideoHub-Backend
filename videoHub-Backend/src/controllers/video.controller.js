@@ -7,6 +7,8 @@ import {
     deleteFromCloudinary,
     uploadOnCloudinary,
 } from "../utils/cloudinary.js";
+import { Like } from "../models/likes.model.js";
+import { Comment } from "../models/comment.model.js";
 
 const uploadVideo = asyncHandler(async (req, res) => {
     /* short Algo
@@ -112,6 +114,21 @@ const deleteVideo = asyncHandler(async (req, res) => {
     await deleteFromCloudinary(videoExists.videoFile.public_Id, "video");
     await deleteFromCloudinary(videoExists.thumbnail.public_Id, "image");
 
+    const likesDeleted =  await Like.deleteMany({
+        video:id
+    })
+    if(!likesDeleted){
+        throw new ApiError(401,"Something went wrong while deleting likes of the video!")
+    }
+
+    const commentsDeleted = await Comment.deleteMany({
+        video:id
+    })
+
+    if(!commentsDeleted){
+        throw new ApiError(401,"Something went wrong while deleting comments of the video!")
+    }
+
     const deletedVideo = await videoExists.deleteOne();
 
     if (!deletedVideo) {
@@ -216,150 +233,141 @@ const getSingleVideo = asyncHandler(async (req, res) => {
 
     const likesAndCommentsAndSubscribers = await Video.aggregate([
         {
-            $match:{
-                _id: new mongoose.Types.ObjectId(id)
-            }
+            $match: {
+                _id: new mongoose.Types.ObjectId(id),
+            },
         },
         {
-            $lookup:{
-                from:"likes",
-                localField:"_id",
-                foreignField:"videoId",
-                as:"likes"
-            }
+            $lookup: {
+                from: "likes",
+                localField: "_id",
+                foreignField: "videoId",
+                as: "likes",
+            },
         },
         {
-            $lookup:{
-                from:"comments",
-                localField:'_id',
-                foreignField:"videoId",
-                as:"comments"
-            }
+            $lookup: {
+                from: "comments",
+                localField: "_id",
+                foreignField: "videoId",
+                as: "comments",
+            },
         },
         {
-            $lookup:{
-                from:'dislikes',
-                localField:'_id',
-                foreignField:'video',
-                as:'dislikes'
-            }
+            $lookup: {
+                from: "dislikes",
+                localField: "_id",
+                foreignField: "video",
+                as: "dislikes",
+            },
         },
         {
-            $lookup:{
-                from:'users',
-                localField:'owner',
-                foreignField:'_id',
-                as:"owner",
-                pipeline:[
+            $lookup: {
+                from: "users",
+                localField: "owner",
+                foreignField: "_id",
+                as: "owner",
+                pipeline: [
                     {
-                        $lookup:{
-                            from:'subscriptions',
-                            localField:'_id',
-                            foreignField:'channel',
-                            as:"subscribers"
-                        }
+                        $lookup: {
+                            from: "subscriptions",
+                            localField: "_id",
+                            foreignField: "channel",
+                            as: "subscribers",
+                        },
                     },
                     {
-                        $addFields:{
-                            subscribersCount:{
-                                $size:'$subscribers'
+                        $addFields: {
+                            subscribersCount: {
+                                $size: "$subscribers",
                             },
-                            isSubscribed:{
-                                $cond:{
-                                    if:{
-                                        $in:[
+                            isSubscribed: {
+                                $cond: {
+                                    if: {
+                                        $in: [
                                             req.user?._id,
-                                            '$subscribers.subscriber'
-                                        ]
+                                            "$subscribers.subscriber",
+                                        ],
                                     },
-                                    then:true,
-                                    else:false
-                                }
-                            }
-                        }
+                                    then: true,
+                                    else: false,
+                                },
+                            },
+                        },
                     },
                     {
-                        $project:{
-                            username:1,
-                            'avatar.url':1,
-                             subscribersCount:1,
-                             isSubscribed:1
-                        }
-                    }
-                ]
-            }
+                        $project: {
+                            username: 1,
+                            "avatar.url": 1,
+                            subscribersCount: 1,
+                            isSubscribed: 1,
+                        },
+                    },
+                ],
+            },
         },
         {
-            $addFields:{
-                likesCount:{
-                    $size:'$likes'
+            $addFields: {
+                likesCount: {
+                    $size: "$likes",
                 },
-                commentsCount:{
-                    $size:'$comments'
+                commentsCount: {
+                    $size: "$comments",
                 },
-                dislikesCount:{
-                    $size:'$dislikes'
+                dislikesCount: {
+                    $size: "$dislikes",
                 },
-                isliked:{
-                    $cond:{
-                        if:{
-                            $in:[
-                                req.user?._id,
-                                "$likes.likedBy"
-                            ]     
+                isliked: {
+                    $cond: {
+                        if: {
+                            $in: [req.user?._id, "$likes.likedBy"],
                         },
-                        then:true,
-                        else:false
-                    }
+                        then: true,
+                        else: false,
+                    },
                 },
-                isdisliked:{
-                    $cond:{
-                        if:{
-                            $in:[
-                                req.user?._id,
-                                "$dislikes.dislikedBy"
-                            ]     
+                isdisliked: {
+                    $cond: {
+                        if: {
+                            $in: [req.user?._id, "$dislikes.dislikedBy"],
                         },
-                        then:true,
-                        else:false
-                    }
+                        then: true,
+                        else: false,
+                    },
                 },
-                isCommented:{
-                    $cond:{
-                        if:{
-                            $in:[
-                                req.user?._id,
-                                '$comments.owner'
-                            ]
+                isCommented: {
+                    $cond: {
+                        if: {
+                            $in: [req.user?._id, "$comments.owner"],
                         },
-                        then:true,
-                        else:false
-                    }
-                }
-            }
+                        then: true,
+                        else: false,
+                    },
+                },
+            },
         },
         {
-            $project:{
-                'videoFile.url':1,
-                title:1,
-                description:1,
-                views:1,
-                createdAt:1,
-                duration:1,
-                comments:1,
-                likesCount:1,
-                dislikesCount:1,
-                commentsCount:1,
-                isLiked:1,
-                isCommented:1,
-                isdisliked:1,
-                owner:1
-            }
-        }
+            $project: {
+                "videoFile.url": 1,
+                title: 1,
+                description: 1,
+                views: 1,
+                createdAt: 1,
+                duration: 1,
+                comments: 1,
+                likesCount: 1,
+                dislikesCount: 1,
+                commentsCount: 1,
+                isLiked: 1,
+                isCommented: 1,
+                isdisliked: 1,
+                owner: 1,
+            },
+        },
     ]);
 
     console.log("Aggregation Results: ", likesAndCommentsAndSubscribers);
-    
+
     return res
         .status(200)
         .json(new ApiResponse(200, video, "Video fetched successfully"));
